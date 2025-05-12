@@ -50,6 +50,7 @@ The functions in CIO.C have for goal to realize a byte input / output process.
 /*@{*/
 
 #include "opj_config_private.h"
+#include "BufferStream.h"
 
 /* ----------------------------------------------------------------------- */
 
@@ -160,6 +161,12 @@ typedef struct opj_stream_private {
      * Used with OPJ_STREAM_STATUS_* defines.
      */
     OPJ_UINT32 m_status;
+    /**
+      for wasm, don't store function pointer, rather than
+      function pointer.
+    */
+
+    OPJ_BOOL m_use_buffered_stream;
 
 }
 opj_stream_private_t;
@@ -397,11 +404,28 @@ OPJ_SIZE_T opj_stream_default_write(void * p_buffer, OPJ_SIZE_T p_nb_bytes,
  */
 OPJ_OFF_T opj_stream_default_skip(OPJ_OFF_T p_nb_bytes, void * p_user_data);
 
+void OPJ_CALLCONV opj_stream_set_use_buffered_stream(opj_stream_t* p_stream,
+        OPJ_BOOL use_buffered_stream);
 /**
  * FIXME DOC.
  */
 OPJ_BOOL opj_stream_default_seek(OPJ_OFF_T p_nb_bytes, void * p_user_data);
+/**
+ * The skip, read, write, and seek operations on the input stream
+ * are abstracted within the following skip/read/write/seek_stream functions.
+ * The use of pointer functions were used earlier, but when compiling to
+ * web-assembly, the pointer functions did not work.  The web-assembly code
+ * is used only with buffers to date.  Therefore within these 4 functions,
+ * the explicit call to the buffer type stream is performed when m_use_buffered_stream
+ * is true.  Otherwise the pointer functions are used, and the option to
+ * introduce other types of streams beyond file streams remains.
+ */
 
+OPJ_SIZE_T skip_stream(opj_stream_private_t * stream,OPJ_SIZE_T len, opj_buffer_info_t* psrc);
+OPJ_SIZE_T read_stream(opj_stream_private_t * stream, void* pcst,OPJ_SIZE_T len, opj_buffer_info_t* psrc);
+OPJ_SIZE_T write_stream(opj_stream_private_t * stream, void* pbuffer, OPJ_SIZE_T p_nb_bytes,
+          opj_buffer_info_t* p_source_buffer);
+OPJ_BOOL seek_stream(opj_stream_private_t * stream, OPJ_OFF_T len,opj_buffer_info_t* psrc);
 /* ----------------------------------------------------------------------- */
 /*@}*/
 

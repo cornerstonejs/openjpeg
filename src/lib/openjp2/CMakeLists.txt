@@ -57,6 +57,8 @@ set(OPENJPEG_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/opj_stdint.h
   ${CMAKE_CURRENT_SOURCE_DIR}/sparse_array.c
   ${CMAKE_CURRENT_SOURCE_DIR}/sparse_array.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/BufferStream.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/BufferStream.h
 )
 if(BUILD_JPIP)
   add_definitions(-DUSE_JPIP)

@@ -38,7 +38,72 @@
  */
 
 #include "opj_includes.h"
+#include "BufferStream.h"
 
+void OPJ_CALLCONV opj_stream_set_use_buffered_stream(opj_stream_t* p_stream,
+        OPJ_BOOL use_buffered_stream)
+{
+    opj_stream_private_t* l_stream = (opj_stream_private_t*) p_stream;
+
+    if (! l_stream) {
+        return;
+    }
+    printf("set m_use_buffered_stream to %d\n",use_buffered_stream);
+    l_stream->m_use_buffered_stream = use_buffered_stream;
+}
+OPJ_SIZE_T skip_stream(opj_stream_private_t * stream, OPJ_SIZE_T len, opj_buffer_info_t* psrc)
+{
+    OPJ_SIZE_T current;
+    if (stream->m_use_buffered_stream) {
+        current = opj_skip_from_buffer(len, psrc);
+    }
+    else
+    {
+        current = (OPJ_SIZE_T) stream->m_skip_fn((OPJ_OFF_T)len, psrc);
+    }
+    return current;
+}
+
+OPJ_SIZE_T read_stream(opj_stream_private_t * stream, void* pdst,OPJ_SIZE_T len, opj_buffer_info_t* psrc)
+{
+    OPJ_SIZE_T current;
+    if (stream->m_use_buffered_stream)
+    {
+        current = opj_read_from_buffer(pdst,len,psrc);
+    }
+    else
+    {
+        current  = stream->m_read_fn(pdst, len, psrc);
+    }
+    return current;
+}
+OPJ_SIZE_T write_stream(opj_stream_private_t * stream, void* pbuffer, OPJ_SIZE_T p_nb_bytes,
+          opj_buffer_info_t* p_source_buffer) {
+    OPJ_SIZE_T current;
+    if (stream->m_use_buffered_stream)
+    {
+        current = opj_write_to_buffer(pbuffer,p_nb_bytes,
+            p_source_buffer);
+    }
+    else
+    {
+        current = stream->m_write_fn(pbuffer,p_nb_bytes,p_source_buffer);
+    }
+    return current;
+}
+OPJ_BOOL seek_stream(opj_stream_private_t * stream, OPJ_OFF_T len,opj_buffer_info_t* psrc)
+{
+    OPJ_BOOL success;
+    if (stream->m_use_buffered_stream)
+    {
+        success = opj_seek_from_buffer(len, psrc);
+    }
+    else
+    {
+        success = stream->m_seek_fn(len, psrc);
+    }
+    return success;
+};
 /* ----------------------------------------------------------------------- */
 
 
@@ -165,6 +230,8 @@ opj_stream_t* OPJ_CALLCONV opj_stream_create(OPJ_SIZE_T p_buffer_size,
     }
 
     l_stream->m_buffer_size = p_buffer_size;
+    // default the cio to byte-straem mode
+    l_stream->m_use_buffered_stream = OPJ_TRUE;
     l_stream->m_stored_data = (OPJ_BYTE *) opj_malloc(p_buffer_size);
     if (! l_stream->m_stored_data) {
         opj_free(l_stream);
@@ -321,7 +388,7 @@ OPJ_SIZE_T opj_stream_read_data(opj_stream_private_t * p_stream,
         /* we should read less than a chunk -> read a chunk */
         if (p_size < p_stream->m_buffer_size) {
             /* we should do an actual read on the media */
-            p_stream->m_bytes_in_buffer = p_stream->m_read_fn(p_stream->m_stored_data,
+            p_stream->m_bytes_in_buffer = read_stream(p_stream, p_stream->m_stored_data,
                                           p_stream->m_buffer_size, p_stream->m_user_data);
 
             if (p_stream->m_bytes_in_buffer == (OPJ_SIZE_T) - 1) {
@@ -351,7 +418,7 @@ OPJ_SIZE_T opj_stream_read_data(opj_stream_private_t * p_stream,
             }
         } else {
             /* direct read on the dest buffer */
-            p_stream->m_bytes_in_buffer = p_stream->m_read_fn(p_buffer, p_size,
+            p_stream->m_bytes_in_buffer = read_stream(p_stream, p_buffer, p_size,
                                           p_stream->m_user_data);
 
             if (p_stream->m_bytes_in_buffer == (OPJ_SIZE_T) - 1) {
@@ -440,7 +507,7 @@ OPJ_BOOL opj_stream_flush(opj_stream_private_t * p_stream,
 
     while (p_stream->m_bytes_in_buffer) {
         /* we should do an actual write on the media */
-        l_current_write_nb_bytes = p_stream->m_write_fn(p_stream->m_current_data,
+        l_current_write_nb_bytes = write_stream(p_stream, p_stream->m_current_data,
                                    p_stream->m_bytes_in_buffer,
                                    p_stream->m_user_data);
 
@@ -517,7 +584,7 @@ OPJ_OFF_T opj_stream_read_skip(opj_stream_private_t * p_stream,
         }
 
         /* we should do an actual skip on the media */
-        l_current_skip_nb_bytes = p_stream->m_skip_fn(p_size, p_stream->m_user_data);
+        l_current_skip_nb_bytes = skip_stream(p_stream, p_size, p_stream->m_user_data);
         if (l_current_skip_nb_bytes == (OPJ_OFF_T) - 1) {
             opj_event_msg(p_event_mgr, EVT_INFO, "Stream reached its end !\n");
 
@@ -557,7 +624,7 @@ OPJ_OFF_T opj_stream_write_skip(opj_stream_private_t * p_stream,
 
     while (p_size > 0) {
         /* we should do an actual skip on the media */
-        l_current_skip_nb_bytes = p_stream->m_skip_fn(p_size, p_stream->m_user_data);
+        l_current_skip_nb_bytes = skip_stream(p_stream, p_size, p_stream->m_user_data);
 
         if (l_current_skip_nb_bytes == (OPJ_OFF_T) - 1) {
             opj_event_msg(p_event_mgr, EVT_INFO, "Stream error!\n");
@@ -604,7 +671,7 @@ OPJ_BOOL opj_stream_read_seek(opj_stream_private_t * p_stream, OPJ_OFF_T p_size,
     p_stream->m_current_data = p_stream->m_stored_data;
     p_stream->m_bytes_in_buffer = 0;
 
-    if (!(p_stream->m_seek_fn(p_size, p_stream->m_user_data))) {
+    if (!(seek_stream(p_stream, p_size, p_stream->m_user_data))) {
         p_stream->m_status |= OPJ_STREAM_STATUS_END;
         return OPJ_FALSE;
     } else {
@@ -628,7 +695,7 @@ OPJ_BOOL opj_stream_write_seek(opj_stream_private_t * p_stream,
     p_stream->m_current_data = p_stream->m_stored_data;
     p_stream->m_bytes_in_buffer = 0;
 
-    if (! p_stream->m_seek_fn(p_size, p_stream->m_user_data)) {
+    if (! seek_stream(p_stream, p_size, p_stream->m_user_data)) {
         p_stream->m_status |= OPJ_STREAM_STATUS_ERROR;
         return OPJ_FALSE;
     } else {
