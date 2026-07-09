@@ -1,6 +1,6 @@
 # NON-REGRESSION TESTS ON THIS DATASET LOCATED ${OPJ_DATA_ROOT}/input/nonregression
 
-cmake_minimum_required(VERSION 2.8.7)
+cmake_minimum_required(VERSION 3.5)
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/Temporary)
 
@@ -82,8 +82,9 @@ set(BLACKLIST_JPEG2000
     issue475.jp2 #kdu_jp2info ok
     issue413.jp2 #kdu_jp2info ok
     issue823.jp2 #kdu_jp2info ok
-    issue826.jp2 #inspection reveales that the transformation value is out of range
-    oss-fuzz2785.jp2 #inspection reveales that the transformation value is out of range
+    issue826.jp2 #inspection reveals that the transformation value is out of range
+    oss-fuzz2785.jp2 #inspection reveals that the transformation value is out of range
+    issue1438.j2k
    )
 
 file(GLOB_RECURSE OPJ_DATA_NR_LIST
@@ -112,7 +113,10 @@ foreach(INPUT_FILENAME ${OPJ_DATA_NR_LIST})
   	       -o ${TEMP}/${INPUT_FILENAME_NAME}.txt
   	       -v
   	       )
-  	
+
+  set_tests_properties(NR-${INPUT_FILENAME_NAME}-dump
+                       PROPERTIES ENVIRONMENT OJP_DO_NOT_DISPLAY_TILE_INDEX_IF_TLM=YES)
+
   if(bad_jpeg2000)
     set_tests_properties(NR-${INPUT_FILENAME_NAME}-dump
                          PROPERTIES WILL_FAIL TRUE)
@@ -335,6 +339,10 @@ foreach(OPJ_TEST_CMD_LINE ${OPJ_TEST_CMD_LINE_LIST})
             -i ${OUTPUT_FILENAME}
             -o ${OUTPUT_FILENAME}-ENC-${IT_TEST_ENC}.txt
           )
+
+          set_tests_properties(NR-ENC-${INPUT_FILENAME_NAME}-${IT_TEST_ENC}-dump
+                               PROPERTIES ENVIRONMENT OJP_DO_NOT_DISPLAY_TILE_INDEX_IF_TLM=YES)
+
           set_tests_properties(NR-ENC-${INPUT_FILENAME_NAME}-${IT_TEST_ENC}-dump
                                PROPERTIES DEPENDS
                                NR-ENC-${INPUT_FILENAME_NAME}-${IT_TEST_ENC}-encode)

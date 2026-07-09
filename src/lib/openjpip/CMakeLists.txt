@@ -52,19 +52,17 @@ set(LOCAL_SRCS
   )
 
 # Build the library
+add_library(openjpip ${OPENJPIP_SRCS} ${LOCAL_SRCS})
 if(WIN32)
   if(BUILD_SHARED_LIBS)
-    add_definitions(-DOPJ_EXPORTS)
+    target_compile_definitions(openjpip PRIVATE OPJ_EXPORTS)
   else()
-    add_definitions(-DOPJ_STATIC)
+    target_compile_definitions(openjpip PUBLIC OPJ_STATIC)
   endif()
 endif()
-add_library(openjpip ${OPENJPIP_SRCS} ${LOCAL_SRCS})
 set_target_properties(openjpip
   PROPERTIES ${OPENJPEG_LIBRARY_PROPERTIES})
-if(NOT ${CMAKE_VERSION} VERSION_LESS "2.8.12")
-  target_compile_options(openjpip PRIVATE ${OPENJPEG_LIBRARY_COMPILE_OPTIONS})
-endif()
+target_compile_options(openjpip PRIVATE ${OPENJPEG_LIBRARY_COMPILE_OPTIONS})
 target_link_libraries(openjpip ${OPENJPEG_LIBRARY_NAME})
 if(WIN32)
   # add Winsock on windows+mingw
